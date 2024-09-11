@@ -2,7 +2,8 @@ namespace CrashrISPO.Functions;
 
 using Newtonsoft.Json.Linq;
 using CrashrISPO.Helper;
-
+using System.Net.Http;
+using System.Text;
 
 public static class Functions
 {
@@ -21,7 +22,25 @@ public static class Functions
         return data;
     }
 
-   
+    public static async Task<List<Dictionary<string, string>>> FetchAssets(HttpClient client, string stakeAddress)
+    {
+        string url = "https://api.koios.rest/api/v1/account_assets";
+        var jsonBody = $"{{\"_stake_addresses\":[\"{stakeAddress}\"]}}";
+
+        var body = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+
+        HttpResponseMessage response = await client.PostAsync(url, body);
+
+        response.EnsureSuccessStatusCode();
+
+        var content = await response.Content.ReadAsStringAsync();
+
+        var json = JArray.Parse(content);
+
+        var data = json.ToObject<List<Dictionary<string, string>>>();
+
+        return data;
+    }
 
     public static Dictionary<string, string> InitDelegator(int currentIndex, int startEpoch, string poolName, string poolId, Dictionary<string, string> delegatorData)
     {
@@ -90,8 +109,14 @@ public static class Functions
         return delegatorRewards;
     }
 
-    public static double AddBonuses(Dictionary<string, double> delegatorReward)
+    public static double AddBonuses(Dictionary<string, double> delegatorReward, List<Dictionary<string, string>> assetList)
     {
+        string requiredPolicyId = "5f3a47fa83522c6eece53bbfe0a77374bd748d6ac5b8892d3d5b3ff3"; //temporary
+        string requiredAssetName = "5365636972697479"; // temporary
+
+        int validAssetCount = 0;
+        bool isBoomer = false;
+
         double epochCount = delegatorReward["main_pool_epoch_count"];
         double totalADAStaked = delegatorReward["total_ADA_staked"];
         double totalRewards = delegatorReward["total_rewards"];
@@ -114,6 +139,35 @@ public static class Functions
         else if (epochCount >= 20)
         {
             totalRewards += totalRewards * 0.05;
+        }
+
+        if (assetList.Count > 0)
+        {
+
+            foreach (var asset in assetList)
+            {
+                if (asset["policy_id"] == requiredPolicyId)
+                {
+                    validAssetCount += 1;
+
+                    if (asset["asset_name"] == requiredAssetName)
+                    {
+                        isBoomer = true;
+                    }
+                }
+            }
+
+        }
+        if (epochCount >= 23 && totalADAStaked >= 500)
+        {
+            if (validAssetCount >= 12)
+            {
+                totalRewards += totalRewards * 0.1;
+            }
+            else if (isBoomer)
+            {
+                totalRewards += totalRewards * 0.005;
+            }
         }
 
         return totalRewards;

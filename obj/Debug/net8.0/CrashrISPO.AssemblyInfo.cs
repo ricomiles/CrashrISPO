@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CrashrISPO")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d5f5064da84acdec30168c7c622f2ebdfc0a7bd6")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+12456997dd3262b03415ec271349746eb2e591ae")]
 [assembly: System.Reflection.AssemblyProductAttribute("CrashrISPO")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CrashrISPO")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

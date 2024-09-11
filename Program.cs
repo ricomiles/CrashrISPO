@@ -24,7 +24,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/Koios/{mainPoolStartEpoch}/{startEpoch:int}/{endEpoch:int}/{mainRate:double}/{spoFixedAmount:double}/{generateCsv:bool}", async (IHttpClientFactory httpClientFactory, int mainPoolStartEpoch, int startEpoch, int endEpoch, double mainRate, double spoFixedAmount, bool generateCsv) =>
 {
-
+    var client = httpClientFactory.CreateClient();
     List<Dictionary<string, string>> result = new();
     double totalAda = 0;
 
@@ -42,7 +42,7 @@ app.MapGet("/Koios/{mainPoolStartEpoch}/{startEpoch:int}/{endEpoch:int}/{mainRat
     {
         foreach (var entry in poolIds)
         {
-            var client = httpClientFactory.CreateClient();
+
             List<Dictionary<string, string>> delegatorInfo = new();
             string url = "";
 
@@ -78,7 +78,7 @@ app.MapGet("/Koios/{mainPoolStartEpoch}/{startEpoch:int}/{endEpoch:int}/{mainRat
     {
         if (delegatorRewards.ContainsKey(delegatorData["stake_address"]))
         {
-           delegatorRewards = Functions.UpdateRewards(delegatorData, delegatorRewards, mainRate, partnerRate);
+            delegatorRewards = Functions.UpdateRewards(delegatorData, delegatorRewards, mainRate, partnerRate);
         }
         else
         {
@@ -90,13 +90,21 @@ app.MapGet("/Koios/{mainPoolStartEpoch}/{startEpoch:int}/{endEpoch:int}/{mainRat
     {
         Helper.CreateCsv(result, mainPoolStartEpoch, endEpoch, "Koios");
     }
-    
+
     foreach (var delegatorReward in delegatorRewards)
     {
-        delegatorReward.Value["total_rewards"] = Functions.AddBonuses(delegatorReward.Value);
+        List<Dictionary<string, string>> assetList = new();
+        if (delegatorReward.Key == "stake1u8x78suakz2juuwhatcvwvqrh8frsjegcusc0n7560tcues46a55p")
+        {
+            assetList = await Functions.FetchAssets(client, delegatorReward.Key);
+
+        }
+
+        delegatorReward.Value["total_rewards"] = Functions.AddBonuses(delegatorReward.Value, assetList);
     }
 
-    
+
+
 
     return Results.Json(Helper.SortByTotalRewards(delegatorRewards));
 
