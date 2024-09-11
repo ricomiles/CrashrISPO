@@ -33,3 +33,4 @@
 /home/freezing/work/CrashrISPO/obj/Debug/net8.0/CrashrISPO.pdb
 /home/freezing/work/CrashrISPO/obj/Debug/net8.0/CrashrISPO.genruntimeconfig.cache
 /home/freezing/work/CrashrISPO/obj/Debug/net8.0/ref/CrashrISPO.dll
+/home/freezing/work/CrashrISPO/obj/Debug/net8.0/CrashrISPO.sourcelink.json

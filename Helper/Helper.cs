@@ -1,10 +1,8 @@
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.VisualBasic;
 
 namespace CrashrISPO.Helper;
 
 
-static class Helper
+public static class Helper
 {
     public static void CreateCsv(List<Dictionary<string, string>> result, int startEpoch, int endEpoch, string apiName)
     {
@@ -24,14 +22,19 @@ static class Helper
         }
     }
 
+    public static double ConvertLovelaceStringToADA(string lovelace)
+    {
+        return Convert.ToDouble(lovelace) / 1000000;
+    }
+
     public static Dictionary<string, Dictionary<string, double>> SortByTotalRewards(Dictionary<string, Dictionary<string, double>> dict)
     {
-        return dict.OrderByDescending(kv => kv.Value["totalRewards"]).ToDictionary(kv => kv.Key, kv => kv.Value);
+        return dict.OrderByDescending(kv => kv.Value["total_rewards"]).ToDictionary(kv => kv.Key, kv => kv.Value);
     }
 
 
     public static Dictionary<string, Dictionary<string, double>> SortByTotalADAStaked(Dictionary<string, Dictionary<string, double>> dict)
     {
-        return dict.OrderByDescending(kv => kv.Value["totalADAStaked"]).ToDictionary(kv => kv.Key, kv => kv.Value);
+        return dict.OrderByDescending(kv => kv.Value["total_ADA_staked"]).ToDictionary(kv => kv.Key, kv => kv.Value);
     }
 }

@@ -1,5 +1,6 @@
-using Newtonsoft.Json.Linq;
+
 using CrashrISPO.Helper;
+using CrashrISPO.Functions;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,14 +21,12 @@ if (app.Environment.IsDevelopment())
 }
 
 
-app.MapGet("/Koios/{startEpoch:int}/{endEpoch:int}/{mainRate:double}/{spoFixedAmount:double}/{generateCsv:bool}", async (IHttpClientFactory httpClientFactory, int startEpoch, int endEpoch, double mainRate, double spoFixedAmount, bool generateCsv) =>
+
+app.MapGet("/Koios/{mainPoolStartEpoch}/{startEpoch:int}/{endEpoch:int}/{mainRate:double}/{spoFixedAmount:double}/{generateCsv:bool}", async (IHttpClientFactory httpClientFactory, int mainPoolStartEpoch, int startEpoch, int endEpoch, double mainRate, double spoFixedAmount, bool generateCsv) =>
 {
 
-    var apiKey = Environment.GetEnvironmentVariable("API_KEY");
     List<Dictionary<string, string>> result = new();
-    List<string> nonCrashAddresses = new();
-
-    double crashPoolTotal = 0;
+    double totalAda = 0;
 
     Dictionary<string, string> poolIds = new()
     {
@@ -38,42 +37,32 @@ app.MapGet("/Koios/{startEpoch:int}/{endEpoch:int}/{mainRate:double}/{spoFixedAm
         {"CRASH", "pool1j8zhlvakd29yup5xmxtyhrmeh24udqrgkwdp99d9tx356wpjarn"},
     };
 
-    for (int i = startEpoch; i <= endEpoch; i++)
+
+    for (int i = mainPoolStartEpoch; i <= endEpoch; i++)
     {
         foreach (var entry in poolIds)
         {
             var client = httpClientFactory.CreateClient();
             List<Dictionary<string, string>> delegatorInfo = new();
+            string url = "";
 
+            if (i < startEpoch)
+            {
+                url = $"https://api.koios.rest/api/v1/pool_delegators_history?_pool_bech32=pool1j8zhlvakd29yup5xmxtyhrmeh24udqrgkwdp99d9tx356wpjarn&_epoch_no={i}";
+            }
+            else
+            {
+                url = $"https://api.koios.rest/api/v1/pool_delegators_history?_pool_bech32={entry.Value}&_epoch_no={i}";
+            }
 
-            string url = $"https://api.koios.rest/api/v1/pool_delegators_history?_pool_bech32={entry.Value}&_epoch_no={i}";
-            HttpResponseMessage response = await client.GetAsync(url);
-
-            response.EnsureSuccessStatusCode();
-
-            var content = await response.Content.ReadAsStringAsync();
-
-            var json = JArray.Parse(content);
-
-            var data = json.ToObject<List<Dictionary<string, string>>>();
+            var data = await Functions.FetchDelegatorHistory(client, url);
 
             foreach (var dict in data)
             {
-                Dictionary<string, string> delegator = new()
-                    {
-                        {"PoolName", entry.Key},
-                        {"PoolId",entry.Value},
-                    };
+                var delegator = Functions.InitDelegator(i, startEpoch, entry.Key, entry.Value, dict);
 
-                delegator["Epoch"] = dict["epoch_no"];
-                delegator["stake_address"] = dict["stake_address"];
-                delegator["amount"] = dict["amount"];
 
-                if (entry.Key != "CRASH")
-                {
-                    nonCrashAddresses.Add(delegator["stake_address"]);
-                }
-
+                totalAda += Helper.ConvertLovelaceStringToADA(dict["amount"]);
                 result.Add(delegator);
             }
 
@@ -82,53 +71,38 @@ app.MapGet("/Koios/{startEpoch:int}/{endEpoch:int}/{mainRate:double}/{spoFixedAm
 
     }
 
-    Dictionary<string, Dictionary<string, double>> uniqueAdresses = new();
-    double spoIndividualReward = spoFixedAmount / nonCrashAddresses.Count;
+    Dictionary<string, Dictionary<string, double>> delegatorRewards = new();
+    double partnerRate = spoFixedAmount / totalAda;
 
-    foreach (var dict in result)
+    foreach (var delegatorData in result)
     {
-
-        var stakeAddress = dict["stake_address"].Trim();
-        var amount = Convert.ToDouble(dict["amount"]) / 1000000;
-
-        if (uniqueAdresses.ContainsKey(dict["stake_address"]))
+        if (delegatorRewards.ContainsKey(delegatorData["stake_address"]))
         {
-            uniqueAdresses[dict["stake_address"]]["totalADAStaked"] += amount;
-            if (dict["PoolName"] == "CRASH")
-            {
-                uniqueAdresses[dict["stake_address"]]["totalRewards"] += amount * mainRate;
-            }
-            else
-            {
-                uniqueAdresses[dict["stake_address"]]["totalRewards"] += spoIndividualReward;
-            }
+           delegatorRewards = Functions.UpdateRewards(delegatorData, delegatorRewards, mainRate, partnerRate);
         }
         else
         {
-            uniqueAdresses[dict["stake_address"]] = new Dictionary<string, double>();
-
-            uniqueAdresses[dict["stake_address"]]["totalADAStaked"] = amount;
-            if (dict["PoolName"] == "CRASH")
-            {
-                uniqueAdresses[dict["stake_address"]]["totalRewards"] = amount * mainRate;
-            }
-            else
-            {
-                uniqueAdresses[dict["stake_address"]]["totalRewards"] = spoIndividualReward;
-            }
+            delegatorRewards[delegatorData["stake_address"]] = Functions.InitRewards(delegatorData, mainRate, partnerRate);
         }
+
     }
     if (generateCsv)
     {
-        Helper.CreateCsv(result, startEpoch, endEpoch, "Koios");
+        Helper.CreateCsv(result, mainPoolStartEpoch, endEpoch, "Koios");
+    }
+    
+    foreach (var delegatorReward in delegatorRewards)
+    {
+        delegatorReward.Value["total_rewards"] = Functions.AddBonuses(delegatorReward.Value);
     }
 
-    return Results.Json(Helper.SortByTotalRewards(uniqueAdresses));
+    
+
+    return Results.Json(Helper.SortByTotalRewards(delegatorRewards));
 
 })
 .WithName("GetDataFromKoios")
 .WithOpenApi();
-
 
 
 app.Run();
