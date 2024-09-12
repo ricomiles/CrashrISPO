@@ -1,4 +1,0 @@
-curl -X POST "https://api.koios.rest/api/v1/account_assets" \
- -H "accept: application/json"\
- -H "content-type: application/json" \
- -d '{"_stake_addresses":["stake1u8x78suakz2juuwhatcvwvqrh8frsjegcusc0n7560tcues46a55p"]}' 

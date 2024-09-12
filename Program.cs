@@ -1,6 +1,8 @@
 
 using CrashrISPO.Helper;
 using CrashrISPO.Functions;
+using Microsoft.OpenApi.Any;
+using System.Collections.Concurrent;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,6 +29,7 @@ app.MapGet("/Koios/{mainPoolStartEpoch}/{startEpoch:int}/{endEpoch:int}/{mainRat
     var client = httpClientFactory.CreateClient();
     List<Dictionary<string, string>> result = new();
     double totalAda = 0;
+    string url = "";
 
     Dictionary<string, string> poolIds = new()
     {
@@ -37,14 +40,69 @@ app.MapGet("/Koios/{mainPoolStartEpoch}/{startEpoch:int}/{endEpoch:int}/{mainRat
         {"CRASH", "pool1j8zhlvakd29yup5xmxtyhrmeh24udqrgkwdp99d9tx356wpjarn"},
     };
 
+    string requiredPolicyId = "848838af0c3ab2e3027d420e320c90eb217f25b8b097efb4378e90f5";
+    List<Dictionary<string, string>> assetList = new()
+        {
+            new Dictionary<string,string>
+            {
+                {"policyId", requiredPolicyId},
+                {"assetName", "426f6d626572732023313137"}
+            },
+            new Dictionary<string,string>
+            {
+                {"policyId", requiredPolicyId},
+                {"assetName", "426f6d62657273202331353130"}
+            },
+            new Dictionary<string,string>
+            {
+                {"policyId", requiredPolicyId},
+                {"assetName", "426f6d62657273202331353034"}
+            },
+            new Dictionary<string,string>
+            {
+                {"policyId", requiredPolicyId},
+                {"assetName", "426f6d62657273202331353033"}
+            },
+            new Dictionary<string,string>
+            {
+                {"policyId", requiredPolicyId},
+                {"assetName", "426f6d62657273202331353038"}
+            },
+            new Dictionary<string,string>
+            {
+                {"policyId", requiredPolicyId},
+                {"assetName", "426f6d626572732023373330"}
+            },
+            new Dictionary<string,string>
+            {
+                {"policyId", requiredPolicyId},
+                {"assetName", "426f6d62657273202331353039"}
+            },
+            new Dictionary<string,string>
+            {
+                {"policyId", requiredPolicyId},
+                {"assetName", "426f6d62657273202331353035"}
+            },
+            new Dictionary<string,string>
+            {
+                {"policyId", requiredPolicyId},
+                {"assetName", "426f6d62657273202331353037"}
+            },
+            new Dictionary<string,string>
+            {
+                {"policyId", requiredPolicyId},
+                {"assetName", "426f6d62657273202331353036"}
+            },
+        };
+
 
     for (int i = mainPoolStartEpoch; i <= endEpoch; i++)
     {
+
         foreach (var entry in poolIds)
         {
 
             List<Dictionary<string, string>> delegatorInfo = new();
-            string url = "";
 
             if (i < startEpoch)
             {
@@ -55,21 +113,32 @@ app.MapGet("/Koios/{mainPoolStartEpoch}/{startEpoch:int}/{endEpoch:int}/{mainRat
                 url = $"https://api.koios.rest/api/v1/pool_delegators_history?_pool_bech32={entry.Value}&_epoch_no={i}";
             }
 
+
+
             var data = await Functions.FetchDelegatorHistory(client, url);
 
             foreach (var dict in data)
             {
                 var delegator = Functions.InitDelegator(i, startEpoch, entry.Key, entry.Value, dict);
 
-
                 totalAda += Helper.ConvertLovelaceStringToADA(dict["amount"]);
-                result.Add(delegator);
-            }
 
+
+                var exist = result.Any(r => r["stake_address"] == delegator["stake_address"] && r["epoch"] == delegator["epoch"]);
+
+                if (!exist)
+                {
+                    result.Add(delegator);
+                }
+
+
+            }
 
         }
 
     }
+
+    
 
     Dictionary<string, Dictionary<string, double>> delegatorRewards = new();
     double partnerRate = spoFixedAmount / totalAda;
@@ -78,33 +147,48 @@ app.MapGet("/Koios/{mainPoolStartEpoch}/{startEpoch:int}/{endEpoch:int}/{mainRat
     {
         if (delegatorRewards.ContainsKey(delegatorData["stake_address"]))
         {
+
             delegatorRewards = Functions.UpdateRewards(delegatorData, delegatorRewards, mainRate, partnerRate);
+
         }
         else
         {
             delegatorRewards[delegatorData["stake_address"]] = Functions.InitRewards(delegatorData, mainRate, partnerRate);
+
         }
 
     }
     if (generateCsv)
     {
-        Helper.CreateCsv(result, mainPoolStartEpoch, endEpoch, "Koios");
+        Helper.CreateCsv(Helper.SortByEpoch(result), mainPoolStartEpoch, endEpoch, "Koios");
     }
+
+
+
+    List<Dictionary<string, string>> oneOfOneAssetHoldings = new();
+
+    url = "";
+    foreach (var asset in assetList)
+    {
+        List<Dictionary<string, string>> res = new();
+
+        string policyId = asset["policyId"];
+        string assetName = asset["assetName"];
+        url = $"https://api.koios.rest/api/v1/asset_addresses?_asset_policy={policyId}&_asset_name={assetName}";
+        res = await Functions.FetchAssetHoldings(client, url);
+
+        oneOfOneAssetHoldings.AddRange(res);
+    }
+
+    url = $"https://api.koios.rest/api/v1/asset_addresses?_asset_policy={requiredPolicyId}";
+    var boomerAssetHoldings = await Functions.FetchAssetHoldings(client, url);
 
     foreach (var delegatorReward in delegatorRewards)
     {
-        List<Dictionary<string, string>> assetList = new();
-        if (delegatorReward.Key == "stake1u8x78suakz2juuwhatcvwvqrh8frsjegcusc0n7560tcues46a55p")
-        {
-            assetList = await Functions.FetchAssets(client, delegatorReward.Key);
 
-        }
+        delegatorReward.Value["total_rewards"] = Functions.AddBonuses(delegatorReward.Value, oneOfOneAssetHoldings, boomerAssetHoldings, delegatorReward.Key);
 
-        delegatorReward.Value["total_rewards"] = Functions.AddBonuses(delegatorReward.Value, assetList);
     }
-
-
-
 
     return Results.Json(Helper.SortByTotalRewards(delegatorRewards));
 

@@ -4,6 +4,7 @@ using Newtonsoft.Json.Linq;
 using CrashrISPO.Helper;
 using System.Net.Http;
 using System.Text;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 public static class Functions
 {
@@ -22,14 +23,10 @@ public static class Functions
         return data;
     }
 
-    public static async Task<List<Dictionary<string, string>>> FetchAssets(HttpClient client, string stakeAddress)
+    public static async Task<List<Dictionary<string, string>>> FetchAssetHoldings(HttpClient client, string url)
     {
-        string url = "https://api.koios.rest/api/v1/account_assets";
-        var jsonBody = $"{{\"_stake_addresses\":[\"{stakeAddress}\"]}}";
 
-        var body = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-
-        HttpResponseMessage response = await client.PostAsync(url, body);
+        HttpResponseMessage response = await client.GetAsync(url);
 
         response.EnsureSuccessStatusCode();
 
@@ -40,12 +37,13 @@ public static class Functions
         var data = json.ToObject<List<Dictionary<string, string>>>();
 
         return data;
+
     }
 
     public static Dictionary<string, string> InitDelegator(int currentIndex, int startEpoch, string poolName, string poolId, Dictionary<string, string> delegatorData)
     {
         Dictionary<string, string> delegator = new();
-
+    
         if (currentIndex < startEpoch)
         {
             delegator["pool_name"] = "CRASH";
@@ -109,11 +107,8 @@ public static class Functions
         return delegatorRewards;
     }
 
-    public static double AddBonuses(Dictionary<string, double> delegatorReward, List<Dictionary<string, string>> assetList)
+    public static double AddBonuses(Dictionary<string, double> delegatorReward, List<Dictionary<string, string>> oneOfOneHoldingsList, List<Dictionary<string, string>> bomberHoldingsList, string stakeAddress)
     {
-        string requiredPolicyId = "5f3a47fa83522c6eece53bbfe0a77374bd748d6ac5b8892d3d5b3ff3"; //temporary
-        string requiredAssetName = "5365636972697479"; // temporary
-
         int validAssetCount = 0;
         bool isBoomer = false;
 
@@ -141,23 +136,24 @@ public static class Functions
             totalRewards += totalRewards * 0.05;
         }
 
-        if (assetList.Count > 0)
+        foreach (var holding in oneOfOneHoldingsList)
         {
-
-            foreach (var asset in assetList)
+            if(holding.ContainsValue(stakeAddress))
             {
-                if (asset["policy_id"] == requiredPolicyId)
-                {
-                    validAssetCount += 1;
-
-                    if (asset["asset_name"] == requiredAssetName)
-                    {
-                        isBoomer = true;
-                    }
-                }
+                isBoomer = true;
             }
 
         }
+
+        foreach(var holding in bomberHoldingsList)
+        {
+            if(holding.ContainsValue(stakeAddress))
+            {
+                validAssetCount += 1;
+            }
+        }
+
+
         if (epochCount >= 23 && totalADAStaked >= 500)
         {
             if (validAssetCount >= 12)
@@ -173,5 +169,7 @@ public static class Functions
         return totalRewards;
 
     }
+
+
 
 }

@@ -1,4 +1,6 @@
 
+using Microsoft.AspNetCore.Http.Features;
+using System.Collections.Concurrent;
 namespace CrashrISPO.Helper;
 
 
@@ -37,4 +39,22 @@ public static class Helper
     {
         return dict.OrderByDescending(kv => kv.Value["total_ADA_staked"]).ToDictionary(kv => kv.Key, kv => kv.Value);
     }
+
+    public static List<Dictionary<string, string>> SortByEpoch(List<Dictionary<string, string>> list)
+    {
+        return list.OrderBy(d => Convert.ToDouble(d["epoch"])).ToList();
+    }
+
+    public static List<string> ExtractAddresses(Dictionary<string, Dictionary<string, double>> dict)
+    {
+        List<string> addresses = new();
+        foreach(var item in dict)
+        {
+            addresses.Add(item.Key);
+        }
+
+        return addresses;
+    }
+
+    
 }
