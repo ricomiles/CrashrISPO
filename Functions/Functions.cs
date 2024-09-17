@@ -44,18 +44,19 @@ public static class Functions
     {
         Dictionary<string, string> delegator = new();
     
-        if (currentIndex < startEpoch)
-        {
-            delegator["pool_name"] = "CRASH";
-            delegator["pool_id"] = "pool1j8zhlvakd29yup5xmxtyhrmeh24udqrgkwdp99d9tx356wpjarn";
+        // if (currentIndex < startEpoch)
+        // {
+        //     delegator["pool_name"] = "CRASH";
+        //     delegator["pool_id"] = "pool1j8zhlvakd29yup5xmxtyhrmeh24udqrgkwdp99d9tx356wpjarn";
 
-        }
-        else
-        {
-            delegator["pool_name"] = poolName;
-            delegator["pool_id"] = poolId;
-        }
-
+        // }
+        // else
+        // {
+        //     delegator["pool_name"] = poolName;
+        //     delegator["pool_id"] = poolId;
+        // }
+        delegator["pool_name"] = poolName;
+        delegator["pool_id"] = poolId;
         delegator["epoch"] = delegatorData["epoch_no"];
         delegator["stake_address"] = delegatorData["stake_address"];
         delegator["amount"] = delegatorData["amount"];
