@@ -59,7 +59,7 @@ public static class Functions
         delegator["pool_id"] = poolId;
         delegator["epoch"] = delegatorData["epoch_no"];
         delegator["stake_address"] = delegatorData["stake_address"];
-        delegator["amount"] = delegatorData["amount"];
+        delegator["amount_staked(lovelace)"] = delegatorData["amount"];
 
         return delegator;
 
